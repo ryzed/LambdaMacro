@@ -1,6 +1,8 @@
 package ryz.utils;
+import haxe.ds.StringMap;
 import haxe.macro.Expr;
 import haxe.macro.Context;
+import haxe.macro.Type;
 import haxe.macro.TypeTools;
 
 /**
@@ -13,118 +15,125 @@ using haxe.macro.Context;
 class LambdaMacro
 {
 	
-	macro public static function array(a:Expr):Expr
-	{
-		var outType = (macro $a.iterator().next()).typeof().toComplexType();
-		
-		var ret = macro
-		{
-			var r = new Array<$outType>();
-			var it = $a.iterator(); 
-			while ( it.hasNext() )
-			{
-				r.push(it.next());
-			}
-			r;
-		}
-		
-		return ret;
-	}
-	macro public static function list(a:Expr):Expr
-	{
-		var outType = (macro $a.iterator().next()).typeof().toComplexType();
-		
-		var ret = macro
-		{
-			var r = new List<$outType>();
-			var it = $a.iterator(); 
-			while ( it.hasNext() )
-			{
-				r.add(it.next());
-			}
-			r;
-		}
-		
-		return ret;
-	}
-	
-	
-	
 	static function arrowDecompose(f:Expr)
 	{
 		// need find left and right values in f
 		// left - ident
 		// right - expr
 		
-		var lVal:Expr = null;
-		var rVal:Expr = null;
+		var l:Expr = null;
+		var r:Expr = null;
 		
 		switch(f.expr)
 		{
 			case EBinop(OpArrow, e1, e2):
 			{
-				lVal = e1;
-				rVal = e2;
+				l = e1;
+				r = e2;
 			}
-			default: rVal = f;
+			default: r = f;
 		}
 		
-		return { L:lVal, R:rVal };
+		return { L:l, R:r };
 	}
-	static function leftName(lVal:Expr)
+	static function leftName(L:Expr)
 	{
-		return leftNames(lVal)[0];
+		return leftNames(L)[0];
 	}
-	static function leftNames(lvalue:Expr, minCnt:Int = 1)
+	static function leftNames(L:Expr, min:Int = 1)
 	{
-		var names:Array<String> = null;
-		if (lvalue != null)
-		{
-			names = switch(lvalue.expr)
+		var names:Array<String> =
+			if (L != null)
 			{
-				case EConst(CIdent(s)): [s];
-				case EArrayDecl(els): els.map(function(e)
-					return switch(e.expr)
-					{
-						case EConst(CIdent(s)): s; 
-						default: '_';
-					});
-				case _: [];
+				switch(L.expr)
+				{
+					case EConst(CIdent(s)): [s];
+					case EArrayDecl(els): els.map(function(e)
+						return switch(e.expr)
+						{
+							case EConst(CIdent(s)): s; 
+							default: '_';
+						});
+					case _: [];
+				}
 			}
-		}
-		if (names == null)
-		{
-			names = [];
-		}
+			else [];
 		
 		var t = '';
-		while (names.length < minCnt)
-		{
-			names.push(t += '_');
-		}
+		while (names.length < min) names.push(t += '_');
 		return names;
 	}
+	
+	static function tempVarNames(cnt:Int, locals:StringMap<Type>):Array<String>
+	{
+		var r = new Array<String>();
+		var tmap = new StringMap<Int>();
+		
+		while (r.length < cnt)
+		{
+			var t = '__tmp_' + Std.random(0xffffff);
+			if (!locals.exists(t) && !tmap.exists(t))
+			{
+				r.push(t);
+				tmap.set(t, 1);
+			}
+		}
+		return r;
+	}
+	
+	
+	macro public static function array(a:Expr):Expr
+	{
+		var outType = (macro $a.iterator().next()).typeof().toComplexType();
+		
+		var tNames = tempVarNames(2, Context.getLocalVars());
+		var out = tNames.pop();
+		var itv = tNames.pop();
+		
+		return macro
+		{
+			var $out = new Array<$outType>();
+			for ($i{itv} in $a) $i{out}.push($i{itv});
+			$i{out};
+		}
+	}
+	
+	
+	macro public static function list(a:Expr):Expr
+	{
+		var outType = (macro $a.iterator().next()).typeof().toComplexType();
+		
+		var tNames = tempVarNames(2, Context.getLocalVars());
+		var out = tNames.pop();
+		var itv = tNames.pop();
+		
+		return macro
+		{
+			var $out = new List<$outType>();
+			for ($i{itv} in $a) $i{out}.add($i{itv});
+			$i{out};
+		}
+	}
+
+	
 
 	macro public static function count(a:Expr, pred:Expr):Expr
 	{
 		var fDec = arrowDecompose(pred);
-		
 		var lName = leftName(fDec.L);
 		var rVal = fDec.R;
 		
+		var tNames = tempVarNames(1, Context.getLocalVars());
+		var cnt = tNames.pop();
+		
 		return macro
 		{
-			var n = 0;
-			var it = $a.iterator(); 
-			while ( it.hasNext() )
+			var $cnt = 0;
+			for ($i{lName} in $a)
 			{
-				var $lName = it.next();
-				if ($rVal)
-				{
-					n++;
-				}
+				if ($rVal) $i{cnt} += 1; // cant use "++", dunno why
 			}
-			n;
+			$i{cnt};
 		}
 	}
 
@@ -133,32 +142,28 @@ class LambdaMacro
 	macro public static function map(a:Expr, f:Expr):Expr
 	{
 		var fDec = arrowDecompose(f);
-		
 		var lName = leftName(fDec.L);
-		
 		var rVal = fDec.R;
-		var tmp = macro
+		
+		
+		var outType = (macro
 		{
 			var $lName = $a.iterator().next();
 			var bVal = $rVal;
 			bVal;
-		}
-		var outType = tmp.typeof().toComplexType();
+		}).typeof().toComplexType();
 		
 		
-		var ret = macro
+		var tNames = tempVarNames(1, Context.getLocalVars());
+		var out = tNames.pop();
+		
+		
+		return macro
 		{
-			var r = new List<$outType>();
-			var it = $a.iterator(); 
-			while ( it.hasNext() )
-			{
-				var $lName = it.next();
-				r.add($rVal);
-			}
-			r;
+			var $out = new List<$outType>();
+			for ($i{lName} in $a) $i{out}.add($rVal);
+			$i{out};
 		}
-		
-		return ret;
 	}
 	
 
@@ -168,56 +173,56 @@ class LambdaMacro
 		var fDec = arrowDecompose(f);
 		
 		var lNames = leftNames(fDec.L, 2);
-		var lNameIndex = lNames[0];
-		var lNameValue = lNames[1];
+		var lNameIndex = lNames.shift();
+		var lNameValue = lNames.shift();
 		
 		var rVal = fDec.R;
-		var tmp = macro
+		var outType = (macro
 		{
 			var $lNameValue = $a.iterator().next();
 			var $lNameIndex = 0;
 			var bVal = $rVal;
 			bVal;
-		}
-		var outType = tmp.typeof().toComplexType();
+		}).typeof().toComplexType();
 		
 		
-		var ret = macro
+		var tNames = tempVarNames(1, Context.getLocalVars());
+		var out = tNames.pop();
+		
+		return macro
 		{
-			var r = new List<$outType>();
-			var it = $a.iterator();
-			var n = 0;
-			while ( it.hasNext() )
+			var $out = new List<$outType>();
+			var $lNameIndex = 0;
+			for ($i{lNameValue} in $a) 
 			{
-				var $lNameIndex = n++;
-				var $lNameValue = it.next();
-				r.add($rVal);
+				$i{out}.add($rVal);
+				$i{lNameIndex} += 1; // cant use "++", same as count
 			}
-			r;
+			$i{out};
 		}
-		
-		return ret;
 	}
 	
 	
 	
 	macro public static function has(a:Expr, b:Expr):Expr
 	{
+		var tNames = tempVarNames(2, Context.getLocalVars());
+		var answer = tNames.pop();
+		var itv = tNames.pop();
+
 		return macro
+		{
+			var $answer = false;
+			for ($i{itv} in $a)
 			{
-				var answer = false;
-				var it = $a.iterator(); 
-				while ( it.hasNext() )
+				if ($i{itv} == $b)
 				{
-					var elem = it.next();
-					if (elem == $b)
-					{
-						answer = true;
-						break;
-					}
+					$i{answer} = true;
+					break;
 				}
-				answer;
 			}
+			$i{answer};
+		}
 	}
 
 	macro public static function exists(a:Expr, f:Expr):Expr
@@ -226,21 +231,24 @@ class LambdaMacro
 		var lName = leftName(fdec.L);
 		var rVal = fdec.R;
 		
+		
+		var tNames = tempVarNames(1, Context.getLocalVars());
+		var answer = tNames.pop();
+
+		
 		return macro
+		{
+			var $answer = false;
+			for ($i{lName} in $a)
 			{
-				var answer = false;
-				var it = $a.iterator(); 
-				while ( it.hasNext() )
+				if ($rVal)
 				{
-					var $lName = it.next();
-					if ($rVal)
-					{
-						answer = true;
-						break;
-					}
+					$i{answer} = true;
+					break;
 				}
-				answer;
 			}
+			$i{answer};
+		}
 	}
 	
 	
@@ -251,21 +259,24 @@ class LambdaMacro
 		var lName = leftName(fdec.L);
 		var rVal = fdec.R;
 		
+		
+		var tNames = tempVarNames(1, Context.getLocalVars());
+		var answer = tNames.pop();
+
+		
 		return macro
+		{
+			var $answer = true;
+			for ($i{lName} in $a)
 			{
-				var answer = true;
-				var it = $a.iterator(); 
-				while ( it.hasNext() )
+				if (!$rVal)
 				{
-					var $lName = it.next();
-					if (!$rVal)
-					{
-						answer = false;
-						break;
-					}
+					$i{answer} = false;
+					break;
 				}
-				answer;
 			}
+			$i{answer};
+		}
 	}
 
 	
@@ -276,43 +287,34 @@ class LambdaMacro
 		var rVal = fdec.R;
 		
 		return macro
-			{
-				var it = $a.iterator(); 
-				while ( it.hasNext() )
-				{
-					var $lName = it.next();
-					$rVal;
-				}
-			}
+		{
+			for ($i{lName} in $a) $rVal;
+		}
 	}
 	
 	
 	macro public static function filter(a:Expr, f:Expr):Expr
 	{
 		var fDec = arrowDecompose(f);
-		
 		var lName = leftName(fDec.L);
 		var rVal = fDec.R;
 		
 		var outType = (macro $a.iterator().next()).typeof().toComplexType();
 		
-		var ret = macro
-		{
-			var r = new List<$outType>();
-			var it = $a.iterator(); 
-			while ( it.hasNext() )
-			{
-				var tmpElem = it.next();
-				var $lName = tmpElem;
-				if ($rVal)
-				{
-					r.add(tmpElem);
-				}
-			}
-			r;
-		}
 		
-		return ret;
+		var tNames = tempVarNames(1, Context.getLocalVars());
+		var out = tNames.pop();
+		
+		
+		return macro
+		{
+			var $out = new List<$outType>();
+			for ($i{lName} in $a)
+			{
+				if($rVal) $i{out}.add($i{lName});
+			}
+			$i{out};
+		}
 	}
 	
 	
@@ -321,16 +323,22 @@ class LambdaMacro
 	
 	macro public static function countAny(a:Expr):Expr
 	{
+		var tNames = tempVarNames(2, Context.getLocalVars());
+		var cnt = tNames.pop();
+		var it = tNames.pop();
+		
 		return macro
 		{
-			var n = 0;
-			var it = $a.iterator(); 
-			while ( it.hasNext() )
+			// using while instead for, coz we dont need value of it.next()
+			// hope it can be a little faster
+			var $cnt = 0;
+			var $it = $a.iterator(); 
+			while ( $i{it}.hasNext() )
 			{
-				it.next();
-				n++;
+				$i{it}.next();
+				$i{cnt} += 1; // cant use "++"
 			}
-			n;
+			$i{cnt};
 		}
 	}
 
@@ -345,24 +353,26 @@ class LambdaMacro
 	
 	macro public static function indexOf(a:Expr, b:Expr):Expr
 	{
+		var tNames = tempVarNames(3, Context.getLocalVars());
+		var answer = tNames.pop();
+		var counter = tNames.pop();
+		var itv = tNames.pop();
+		
 		return macro
+		{
+			var $answer = -1;
+			var $counter = 0;
+			for ($i{itv} in a)
 			{
-				var answer = -1;
-				
-				var n = 0;
-				var it = $a.iterator(); 
-				while ( it.hasNext() )
+				if ($i{itv} == $b)
 				{
-					var elem = it.next();
-					if (elem == $b)
-					{
-						answer = n;
-						break;
-					}
-					n++;
+					$i{answer} = $i{counter};
+					break;
 				}
-				answer;
+				$i{counter} += 1;
 			}
+			$i{answer};
+		}
 	}
 	
 	
@@ -371,23 +381,17 @@ class LambdaMacro
 	{
 		var outType = (macro $a.iterator().next()).typeof().toComplexType();
 		
-		var ret = macro
-		{
-			var r = new List<$outType>();
-			var it = $a.iterator(); 
-			while ( it.hasNext() )
-			{
-				r.add(it.next());
-			}
-			var it = $b.iterator(); 
-			while ( it.hasNext() )
-			{
-				r.add(it.next());
-			}
-			r;
-		}
+		var tNames = tempVarNames(2, Context.getLocalVars());
+		var out = tNames.pop();
+		var itv = tNames.pop();
 		
-		return ret;
+		return macro
+		{
+			var $out = new List<$outType>();
+			for ($i{itv} in $a) $i{out}.add($i{itv});
+			for ($i{itv} in $b) $i{out}.add($i{itv});
+			$i{out};
+		}
 	}
 
 }
