@@ -3,15 +3,18 @@ LambdaMacro
 
 Lambda with shorts using macros
 
-Based on hxshort ideas by Simn.
+
+Based on hxshort ideas by Simn.<br>
 Main difference - lambda inlined into code, for speed reasons.
 
+
 fold not implemented.
+
 
 Best used through 'using ryz.utils.LambdaMacro' syntax, except map, concat and filter for arrays.
 
 
-Speed difference up to 20 times with no side effects.
+Speed difference up to 20 times with no side effects.<br>
 Check LambdaMacroTest.hx or online at [http://gametrax.eu/game/35a3c97a95](http://gametrax.eu/game/35a3c97a95)
 
 
@@ -33,7 +36,7 @@ mapi(x => body) same as mapi([x, _] => body)
 mapi([x] => body) same as mapi([x, _] => body)
 ```
 
-Exampe usage:
+Example usage:
 ===========
 ```
 var t = ['qwe'];
