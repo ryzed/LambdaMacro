@@ -82,9 +82,13 @@ class LambdaMacro
 	}
 	
 	
-	macro public static function array(a:Expr):Expr
+	macro public static function array<T>(a:ExprOf<Iterable<T>>):Expr
 	{
 		var outType = (macro $a.iterator().next()).typeof().toComplexType();
+		if (outType == null)
+		{
+			throw 'cant infer output type';
+		}
 		
 		var tNames = tempVarNames(2, Context.getLocalVars());
 		var out = tNames.pop();
@@ -99,9 +103,14 @@ class LambdaMacro
 	}
 	
 	
-	macro public static function list(a:Expr):Expr
+	macro public static function list<T>(a:ExprOf<Iterable<T>>):Expr
 	{
 		var outType = (macro $a.iterator().next()).typeof().toComplexType();
+		if (outType == null)
+		{
+			throw 'cant infer output type';
+		}
+
 		
 		var tNames = tempVarNames(2, Context.getLocalVars());
 		var out = tNames.pop();
@@ -117,7 +126,7 @@ class LambdaMacro
 
 	
 
-	macro public static function count(a:Expr, pred:Expr):Expr
+	macro public static function count<T>(a:ExprOf<Iterable<T>>, pred:ExprOf<Bool>):Expr
 	{
 		var fDec = arrowDecompose(pred);
 		var lName = leftName(fDec.L);
@@ -139,7 +148,7 @@ class LambdaMacro
 
 	
 	
-	macro public static function map(a:Expr, f:Expr):Expr
+	macro public static function map<A,B>(a:ExprOf<Iterable<A>>, f:ExprOf<B>):Expr
 	{
 		var fDec = arrowDecompose(f);
 		var lName = leftName(fDec.L);
@@ -152,6 +161,12 @@ class LambdaMacro
 			var bVal = $rVal;
 			bVal;
 		}).typeof().toComplexType();
+		
+		if (outType == null)
+		{
+			throw 'cant infer output type';
+		}
+
 		
 		
 		var tNames = tempVarNames(1, Context.getLocalVars());
@@ -168,7 +183,7 @@ class LambdaMacro
 	
 
 	
-	macro public static function mapi(a:Expr, f:Expr):Expr
+	macro public static function mapi<A,B>(a:ExprOf<Iterable<A>>, f:ExprOf<B>):Expr
 	{
 		var fDec = arrowDecompose(f);
 		
@@ -185,6 +200,11 @@ class LambdaMacro
 			bVal;
 		}).typeof().toComplexType();
 		
+		if (outType == null)
+		{
+			throw 'cant infer output type';
+		}
+
 		
 		var tNames = tempVarNames(1, Context.getLocalVars());
 		var out = tNames.pop();
@@ -204,7 +224,7 @@ class LambdaMacro
 	
 	
 	
-	macro public static function has(a:Expr, b:Expr):Expr
+	macro public static function has<T>(a:ExprOf<Iterable<T>>, b:ExprOf<T>):Expr
 	{
 		var tNames = tempVarNames(2, Context.getLocalVars());
 		var answer = tNames.pop();
@@ -225,7 +245,7 @@ class LambdaMacro
 		}
 	}
 
-	macro public static function exists(a:Expr, f:Expr):Expr
+	macro public static function exists<T>(a:ExprOf<Iterable<T>>, f:ExprOf<Bool>):Expr
 	{
 		var fdec = arrowDecompose(f);
 		var lName = leftName(fdec.L);
@@ -253,7 +273,7 @@ class LambdaMacro
 	
 	
 	
-	macro public static function foreach(a:Expr, f:Expr):Expr
+	macro public static function foreach<T>(a:ExprOf<Iterable<T>>, f:ExprOf<Bool>):Expr
 	{
 		var fdec = arrowDecompose(f);
 		var lName = leftName(fdec.L);
@@ -280,7 +300,7 @@ class LambdaMacro
 	}
 
 	
-	macro public static function iter(a:Expr, f:Expr):Expr
+	macro public static function iter<T>(a:ExprOf<Iterable<T>>, f:ExprOf<Void>):Expr
 	{
 		var fdec = arrowDecompose(f);
 		var lName = leftName(fdec.L);
@@ -293,14 +313,18 @@ class LambdaMacro
 	}
 	
 	
-	macro public static function filter(a:Expr, f:Expr):Expr
+	macro public static function filter<T>(a:ExprOf<Iterable<T>>, f:ExprOf<Bool>):Expr
 	{
 		var fDec = arrowDecompose(f);
 		var lName = leftName(fDec.L);
 		var rVal = fDec.R;
 		
 		var outType = (macro $a.iterator().next()).typeof().toComplexType();
-		
+		if (outType == null)
+		{
+			throw 'cant infer output type';
+		}
+
 		
 		var tNames = tempVarNames(1, Context.getLocalVars());
 		var out = tNames.pop();
@@ -321,7 +345,7 @@ class LambdaMacro
 	
 	
 	
-	macro public static function countAny(a:Expr):Expr
+	macro public static function countAny<T>(a:ExprOf<Iterable<T>>):Expr
 	{
 		var tNames = tempVarNames(2, Context.getLocalVars());
 		var cnt = tNames.pop();
@@ -344,14 +368,14 @@ class LambdaMacro
 
 	
 	
-	macro public static function empty(a:Expr):Expr
+	macro public static function empty<T>(a:ExprOf<Iterable<T>>):Expr
 	{
 		return macro !$a.iterator().hasNext();
 	}
 	
 	
 	
-	macro public static function indexOf(a:Expr, b:Expr):Expr
+	macro public static function indexOf<T>(a:ExprOf<Iterable<T>>, b:ExprOf<T>):Expr
 	{
 		var tNames = tempVarNames(3, Context.getLocalVars());
 		var answer = tNames.pop();
@@ -377,9 +401,14 @@ class LambdaMacro
 	
 	
 	
-	macro public static function concat(a:Expr, b:Expr):Expr
+	macro public static function concat<T>(a:ExprOf<Iterable<T>>, b:ExprOf<Iterable<T>>):Expr
 	{
 		var outType = (macro $a.iterator().next()).typeof().toComplexType();
+		if (outType == null)
+		{
+			throw 'cant infer output type';
+		}
+
 		
 		var tNames = tempVarNames(2, Context.getLocalVars());
 		var out = tNames.pop();
