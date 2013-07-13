@@ -84,19 +84,13 @@ class LambdaMacro
 	
 	macro public static function array<T>(a:ExprOf<Iterable<T>>):Expr
 	{
-		var outType = (macro $a.iterator().next()).typeof().toComplexType();
-		if (outType == null)
-		{
-			throw 'cant infer output type';
-		}
-		
 		var tNames = tempVarNames(2, Context.getLocalVars());
 		var out = tNames.pop();
 		var itv = tNames.pop();
 		
 		return macro
 		{
-			var $out = new Array<$outType>();
+			var $out = new Array();
 			for ($i{itv} in $a) $i{out}.push($i{itv});
 			$i{out};
 		}
@@ -105,20 +99,13 @@ class LambdaMacro
 	
 	macro public static function list<T>(a:ExprOf<Iterable<T>>):Expr
 	{
-		var outType = (macro $a.iterator().next()).typeof().toComplexType();
-		if (outType == null)
-		{
-			throw 'cant infer output type';
-		}
-
-		
 		var tNames = tempVarNames(2, Context.getLocalVars());
 		var out = tNames.pop();
 		var itv = tNames.pop();
 		
 		return macro
 		{
-			var $out = new List<$outType>();
+			var $out = new List();
 			for ($i{itv} in $a) $i{out}.add($i{itv});
 			$i{out};
 		}
@@ -155,27 +142,13 @@ class LambdaMacro
 		var rVal = fDec.R;
 		
 		
-		var outType = (macro
-		{
-			var $lName = $a.iterator().next();
-			var bVal = $rVal;
-			bVal;
-		}).typeof().toComplexType();
-		
-		if (outType == null)
-		{
-			throw 'cant infer output type';
-		}
-
-		
-		
 		var tNames = tempVarNames(1, Context.getLocalVars());
 		var out = tNames.pop();
 		
 		
 		return macro
 		{
-			var $out = new List<$outType>();
+			var $out = new List();
 			for ($i{lName} in $a) $i{out}.add($rVal);
 			$i{out};
 		}
@@ -192,26 +165,13 @@ class LambdaMacro
 		var lNameValue = lNames.shift();
 		
 		var rVal = fDec.R;
-		var outType = (macro
-		{
-			var $lNameValue = $a.iterator().next();
-			var $lNameIndex = 0;
-			var bVal = $rVal;
-			bVal;
-		}).typeof().toComplexType();
-		
-		if (outType == null)
-		{
-			throw 'cant infer output type';
-		}
-
 		
 		var tNames = tempVarNames(1, Context.getLocalVars());
 		var out = tNames.pop();
 		
 		return macro
 		{
-			var $out = new List<$outType>();
+			var $out = new List();
 			var $lNameIndex = 0;
 			for ($i{lNameValue} in $a) 
 			{
@@ -319,12 +279,6 @@ class LambdaMacro
 		var lName = leftName(fDec.L);
 		var rVal = fDec.R;
 		
-		var outType = (macro $a.iterator().next()).typeof().toComplexType();
-		if (outType == null)
-		{
-			throw 'cant infer output type';
-		}
-
 		
 		var tNames = tempVarNames(1, Context.getLocalVars());
 		var out = tNames.pop();
@@ -332,7 +286,7 @@ class LambdaMacro
 		
 		return macro
 		{
-			var $out = new List<$outType>();
+			var $out = new List();
 			for ($i{lName} in $a)
 			{
 				if($rVal) $i{out}.add($i{lName});
@@ -349,19 +303,12 @@ class LambdaMacro
 	{
 		var tNames = tempVarNames(2, Context.getLocalVars());
 		var cnt = tNames.pop();
-		var it = tNames.pop();
+		var itv = tNames.pop();
 		
 		return macro
 		{
-			// using while instead for, coz we dont need value of it.next()
-			// hope it can be a little faster
 			var $cnt = 0;
-			var $it = $a.iterator(); 
-			while ( $i{it}.hasNext() )
-			{
-				$i{it}.next();
-				$i{cnt} += 1; // cant use "++"
-			}
+			for ($i{itv} in $a) $i{cnt} += 1; // cant use "++"
 			$i{cnt};
 		}
 	}
@@ -403,20 +350,13 @@ class LambdaMacro
 	
 	macro public static function concat<T>(a:ExprOf<Iterable<T>>, b:ExprOf<Iterable<T>>):Expr
 	{
-		var outType = (macro $a.iterator().next()).typeof().toComplexType();
-		if (outType == null)
-		{
-			throw 'cant infer output type';
-		}
-
-		
 		var tNames = tempVarNames(2, Context.getLocalVars());
 		var out = tNames.pop();
 		var itv = tNames.pop();
 		
 		return macro
 		{
-			var $out = new List<$outType>();
+			var $out = new List();
 			for ($i{itv} in $a) $i{out}.add($i{itv});
 			for ($i{itv} in $b) $i{out}.add($i{itv});
 			$i{out};
