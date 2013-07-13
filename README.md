@@ -12,7 +12,7 @@ Best used through 'using ryz.utils.LambdaMacro' syntax, except map, concat and f
 
 
 Speed difference up to 20 times with no side effects.
-Check LambdaMacroTest.hx or online at 
+Check LambdaMacroTest.hx or online at [http://gametrax.eu/game/35a3c97a95](http://gametrax.eu/game/35a3c97a95)
 
 
 
